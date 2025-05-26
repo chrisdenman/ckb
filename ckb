@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# A Bash command-line tool for controlling Gnome Control Center custom-keyboard-bindings
+
+# https://github.com/chrisdenman/ckb
+
+# shellcheck disable=SC2059
+
+set -eo pipefail
+
+
+# Constants
+
+ME=$(basename "$0")
+rootFormatString="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings%s"
+bindingFormatString=$(printf "${rootFormatString}" "/custom%s/%s")
+readonly ME rootFormatString bindingFormatString
+
+
+# Code
+
+_join() {
+  local d=${1-} f=${2-}
+  if shift 2; then
+    printf %s "$f" "${@/#/$d}"
+  fi
+}
+
+_exit_with_error() {
+  for line in "$@"; do >&2 printf "${line}\n"; done
+  exit 1
+}
+
+_add() {
+  if [ "$#" -ne 3 ]; then
+    _exit_with_error "Usage: ${ME} add NAME COMMAND BINDING.";
+  else
+    local binding ckb_array_string command entries name nextIndex number_of_bindings sortedCustomKeyBindingsIndicesArray
+
+    local name="$1" && shift
+    local command="$1" && shift
+    local binding="$1"
+    readonly name command binding
+
+    mapfile -t sortedCustomKeyBindingsIndicesArray < \
+      <(dconf list /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/ \
+        | sed --expression s/^custom// --expression s@/@@ \
+        | sort --numeric-sort)
+    number_of_bindings=${#sortedCustomKeyBindingsIndicesArray[@]} && readonly number_of_bindings
+    for ((nextIndex = 0; nextIndex < number_of_bindings; nextIndex++)); do
+      [[ "${sortedCustomKeyBindingsIndicesArray[nextIndex]}" -ne "${nextIndex}" ]] && break
+    done
+    readonly nextIndex
+
+    sortedCustomKeyBindingsIndicesArray[number_of_bindings]="${nextIndex}"
+
+    declare -a entries
+    for index in "${sortedCustomKeyBindingsIndicesArray[@]}"; do
+      # shellcheck disable=SC2207
+      entries+=(\'$(printf "${rootFormatString}" "/custom${index}/")\')
+    done
+    ckb_array_string=$(printf "@as [%s]" "$(_join ", " "${entries[@]}")")
+
+    dconf write "$(printf "${bindingFormatString}" "${index}" "name")" "'${name}'"
+    dconf write "$(printf "${bindingFormatString}" "${index}" "command")" "'${command}'"
+    dconf write "$(printf "${bindingFormatString}" "${index}" "binding")" "'${binding}'"
+
+    dconf write "$(printf "${rootFormatString}" "")" "${ckb_array_string}"
+  fi
+}
+
+_delete() {
+  case "$#" in
+    "0")
+      dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/
+      dconf reset /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings
+      ;;
+    *) _exit_with_error "${ME}: invalid number of arguments"
+      ;;
+  esac
+}
+
+[[ "$#" -eq 0 ]] && _exit_with_error "no args given"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    add) shift && _add "$@"; break;;
+    delete) shift && _delete "$@"; break;;
+    *) >&2 _exit_with_error "${ME}: invalid argument -- '$1'";;
+  esac
+done
