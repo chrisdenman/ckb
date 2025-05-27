@@ -7,20 +7,22 @@ CKB - command-line tool for controlling Gnome Control Center custom-keyboard-bin
 \fBadd\fP \fIname\fP \fIcommand\fP \fIbinding\fP
 .SY ckb
 \fBdelete\fP
+.SY ckb
+\fBdelete\fP \fIname\fP
 .YS
 .SH DESCRIPTION
 \fBckb\fP is a command-line tool for controlling Gnome Control Center custom-keyboard-bindings.
-\fBckb\fP is used to add individual bindings, or to batch-delete all bindings.
+\fBckb\fP is used to add or delete individual bindings, or to batch-delete all bindings.
 .SH EXAMPLES
 .EX
 \fBckb\fP \fIadd\fP \fI'Launch Terminator'\fP \fIterminator\fP \fI'<SHIFT><CTRL><ALT>F12'\fP
 .EE
 .RS 4
-Adds a binding named 'Launch Terminator' which executes the command 'terminator' when: SHIFT, CTRL, ALT and
+Adds a binding named 'Launch Terminator', which will execute the command 'terminator', when: SHIFT, CTRL, ALT and
 F12 are pressed simultaneously.
 .P
-To determine acceptable \fIbinding\fP values, it is recommended to add them manually initially.
-They then can be inspected and stripped of their interstitial '+' characters.
+To determine acceptable \fIbinding\fP values, it is recommended to add them using Gnome Control Center initially.
+The bindings then can be inspected and stripped of their interstitial '+' characters.
 .RE
 .P
 .EX
@@ -28,6 +30,13 @@ They then can be inspected and stripped of their interstitial '+' characters.
 .EE
 .RS 4
 Delete all bindings.
+.RE
+.P
+.EX
+\fBckb\fP \fIdelete\fP \fI'Launch Terminator'\fP
+.EE
+.RS 4
+Delete the binding named 'Launch Terminator'.
 .RE
 .SH BUGS
 Please visit
