@@ -5,6 +5,7 @@
 # https://github.com/chrisdenman/ckb
 
 # shellcheck disable=SC2059
+# shellcheck disable=SC2207
 
 set -eo pipefail
 
@@ -13,8 +14,10 @@ set -eo pipefail
 
 ME=$(basename "$0")
 rootFormatString="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings%s"
+rootDconfKey=$(printf "${rootFormatString}" "")
+rootDconfDir=$(printf "${rootFormatString}" "/")
 bindingFormatString=$(printf "${rootFormatString}" "/custom%s/%s")
-readonly ME rootFormatString bindingFormatString
+readonly ME rootDconfKey rootDconfDir rootFormatString bindingFormatString
 
 
 # Code
@@ -32,18 +35,17 @@ _exit_with_error() {
 }
 
 _add() {
+  local binding ckb_array_string command entries name nextIndex number_of_bindings sortedCustomKeyBindingsIndicesArray
   if [ "$#" -ne 3 ]; then
-    _exit_with_error "Usage: ${ME} add NAME COMMAND BINDING.";
+    _exit_with_error "Usage: ${ME} add NAME COMMAND BINDING";
   else
-    local binding ckb_array_string command entries name nextIndex number_of_bindings sortedCustomKeyBindingsIndicesArray
-
-    local name="$1" && shift
-    local command="$1" && shift
-    local binding="$1"
+    name="$1" && shift
+    command="$1" && shift
+    binding="$1"
     readonly name command binding
 
     mapfile -t sortedCustomKeyBindingsIndicesArray < \
-      <(dconf list /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/ \
+      <(dconf list "${rootDconfDir}" \
         | sed --expression s/^custom// --expression s@/@@ \
         | sort --numeric-sort)
     number_of_bindings=${#sortedCustomKeyBindingsIndicesArray[@]} && readonly number_of_bindings
@@ -56,7 +58,6 @@ _add() {
 
     declare -a entries
     for index in "${sortedCustomKeyBindingsIndicesArray[@]}"; do
-      # shellcheck disable=SC2207
       entries+=(\'$(printf "${rootFormatString}" "/custom${index}/")\')
     done
     ckb_array_string=$(printf "@as [%s]" "$(_join ", " "${entries[@]}")")
@@ -72,12 +73,36 @@ _add() {
 _delete() {
   case "$#" in
     "0")
-      dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/
-      dconf reset /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings
+      dconf reset -f "${rootDconfDir}"
+      dconf reset "${rootDconfKey}"
       ;;
-    *) _exit_with_error "${ME}: invalid number of arguments"
+    "1")
+      _delete_by_name "${1}"
+      ;;
+    *)
+      _exit_with_error "${ME}: invalid number of arguments"
       ;;
   esac
+}
+
+_delete_by_name() {
+  local ckb_array_string customKeyBindingsArray entries index name
+  if [ "$#" -ne 1 ]; then
+    _exit_with_error "Usage: ${ME} delete NAME";
+  else
+    name="$1" && shift
+    mapfile -t customKeyBindingsArray < <(dconf list "${rootDconfDir}")
+    declare -a entries
+    for index in "${customKeyBindingsArray[@]}"; do
+      if [[ "'${name}'" == "$(dconf read "$(printf "${rootFormatString}" "/${index}name")")" ]]; then
+        dconf reset -f "$(printf "${rootFormatString}" "/${index}")"
+      else
+        entries+=(\'$(printf "${rootFormatString}" "/${index}")\')
+      fi
+    done
+    ckb_array_string=$(printf "@as [%s]" "$(_join ", " "${entries[@]}")")
+    dconf write "$(printf "${rootFormatString}" "")" "${ckb_array_string}"
+  fi
 }
 
 [[ "$#" -eq 0 ]] && _exit_with_error "no args given"
