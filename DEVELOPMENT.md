@@ -32,3 +32,4 @@
 ## Links
 
 - [Dconf (Wikipedia)](https://en.wikipedia.org/wiki/Dconf)
+- [GVariant Text Format (docs.gtk.org)](https://docs.gtk.org/glib/gvariant-text-format.html)
